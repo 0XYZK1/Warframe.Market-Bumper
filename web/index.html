@@ -1,46 +1,75 @@
-
 <!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <title>TAOS | WF Bumper</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap');
+        
         :root {
-            --bg: #09090b; --card-bg: #121214; --text: #fafafa;
-            --text-muted: #a1a1aa; --border: #27272a; --accent: #ffffff;
-            --error: #ef4444; --success: #22c55e;
+            --bg: #000000; 
+            --card-bg: #070707; 
+            --text: #e0e0e0;
+            --text-muted: #555555; 
+            --border: #1f1f1f; 
+            --accent: #ffffff;
+            --error: #5a0000; 
+            --success: #0b3d0b;
         }
+        
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; user-select: none; }
-        .card { width: 100%; max-width: 420px; padding: 32px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h1 { font-size: 1.1rem; font-weight: 600; margin-bottom: 24px; text-align: center; letter-spacing: 1.5px; text-transform: uppercase; }
+        
+        /* Brutalist Card Design */
+        .card { width: 100%; max-width: 420px; padding: 40px 32px; background: var(--card-bg); border: 1px solid var(--border); box-shadow: 0 0 40px rgba(0,0,0,1); }
+        
+        /* TAOS Branding */
+        .brand { font-family: 'Cinzel', serif; font-size: 2rem; font-weight: 700; text-align: center; letter-spacing: 6px; margin-bottom: 5px; color: var(--accent); }
+        h1 { font-size: 0.7rem; font-weight: 400; margin-bottom: 32px; text-align: center; letter-spacing: 4px; text-transform: uppercase; color: var(--text-muted); }
+        
         .input-group { margin-bottom: 24px; }
-        label { display: block; font-size: 0.75rem; margin-bottom: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-        input[type="password"] { width: 100%; padding: 12px; background: transparent; border: 1px solid var(--border); color: var(--text); border-radius: 6px; font-size: 0.95rem; transition: all 0.2s; }
-        input[type="password"]:focus { outline: none; border-color: var(--text-muted); background: rgba(255,255,255,0.02); }
-        button { width: 100%; padding: 12px; background: var(--accent); color: var(--bg); border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px; }
-        button:hover:not(:disabled) { opacity: 0.8; }
+        label { display: block; font-size: 0.65rem; margin-bottom: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        
+        /* Sharp Inputs */
+        input[type="password"] { width: 100%; padding: 14px; background: #000000; border: 1px solid var(--border); color: var(--text); font-size: 0.95rem; transition: all 0.2s; border-radius: 0; }
+        input[type="password"]:focus { outline: none; border-color: var(--text-muted); }
+        
+        /* Monolithic Button */
+        button { width: 100%; padding: 14px; background: var(--accent); color: var(--bg); border: none; font-size: 0.8rem; font-weight: 700; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 2px; border-radius: 0; }
+        button:hover:not(:disabled) { background: #cccccc; }
         button:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; }
-        .status-box { margin-top: 20px; padding: 12px; border-radius: 6px; font-size: 0.85rem; text-align: center; min-height: 44px; line-height: 1.4; display: flex; align-items: center; justify-content: center; white-space: pre-wrap; background: rgba(255,255,255,0.03); border: 1px solid transparent; }
-        .status-box.error { color: var(--error); border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); }
-        .status-box.success { color: var(--success); border-color: rgba(34, 197, 94, 0.3); background: rgba(34, 197, 94, 0.1); }
-        .status-box.loading { color: var(--text); }
+        
+        .status-box { margin-top: 24px; padding: 12px; font-size: 0.7rem; text-align: center; min-height: 44px; display: flex; align-items: center; justify-content: center; text-transform: uppercase; letter-spacing: 1px; border: 1px solid transparent; }
+        .status-box.error { color: #ff5555; border-color: var(--error); background: rgba(90, 0, 0, 0.2); }
+        .status-box.success { color: #55ff55; border-color: var(--success); background: rgba(11, 61, 11, 0.2); }
+        .status-box.loading { color: var(--text-muted); border-color: var(--border); }
     </style>
 </head>
 <body>
     <div class="card">
+        <div class="brand">TAOS</div>
         <h1>Market Updater</h1>
         <div class="input-group">
             <label for="token">JWT Token</label>
-            <input type="password" id="token" placeholder="Token einfügen..." autocomplete="off">
+            <input type="password" id="token" placeholder="INSERT TOKEN..." autocomplete="off">
         </div>
-        <button id="updateBtn" onclick="startUpdate()">Update My Articles</button>
-        <div id="statusBox" class="status-box">Bereit.</div>
+        <button id="updateBtn" onclick="startUpdate()">Update Articles</button>
+        <div id="statusBox" class="status-box">SYSTEM READY.</div>
     </div>
 
     <script type="text/javascript" src="/eel.js"></script>
     <script>
         let isUpdating = false;
         let pollInterval = null;
+
+        // Lädt den Token beim Start der App
+        async function init() {
+            let savedToken = await eel.load_token()();
+            if (savedToken) {
+                document.getElementById("token").value = savedToken;
+            }
+        }
+        init();
 
         async function startUpdate() {
             if (isUpdating) return;
@@ -51,15 +80,15 @@
             const token = tokenInput.value.trim();
 
             if (!token) {
-                statusBox.textContent = 'Bitte Token eingeben.';
+                statusBox.textContent = 'TOKEN REQUIRED.';
                 statusBox.className = 'status-box error';
                 return;
             }
 
             isUpdating = true;
             btn.disabled = true;
-            btn.textContent = 'Updating...';
-            statusBox.textContent = 'Starte Update-Prozess...';
+            btn.textContent = 'UPDATING...';
+            statusBox.textContent = 'INITIATING...';
             statusBox.className = 'status-box loading';
 
             pollInterval = setInterval(async () => {
@@ -72,22 +101,22 @@
                         clearInterval(pollInterval);
                         isUpdating = false;
                         btn.disabled = false;
-                        btn.textContent = 'Update My Articles';
+                        btn.textContent = 'UPDATE ARTICLES';
                     }
                 } catch (e) {
-                    console.error("Polling Fehler:", e);
+                    console.error("Polling Error:", e);
                 }
             }, 300); 
 
             try {
                 await eel.start_update_process(token)();
             } catch (e) {
-                statusBox.textContent = 'Kritischer Fehler im Interface.';
+                statusBox.textContent = 'CRITICAL INTERFACE ERROR.';
                 statusBox.className = 'status-box error';
                 clearInterval(pollInterval);
                 isUpdating = false;
                 btn.disabled = false;
-                btn.textContent = 'Update My Articles';
+                btn.textContent = 'UPDATE ARTICLES';
             }
         }
     </script>
