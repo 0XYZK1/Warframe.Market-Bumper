@@ -9,9 +9,30 @@ WEB_DIR = 'web'
 if not os.path.exists(WEB_DIR):
     os.makedirs(WEB_DIR)
 
-# ... (HTML_TEMPLATE bleibt unverändert, du kannst ihn aus deiner Datei übernehmen) ...
+TOKEN_FILE = 'config.json'
 
-GLOBAL_STATUS = {"message": "Bereit.", "type": "", "done": True}
+
+def save_token(token):
+    try:
+        with open(TOKEN_FILE, 'w') as f:
+            json.dump({"token": token}, f)
+    except:
+        pass
+
+
+@eel.expose
+def load_token():
+    if os.path.exists(TOKEN_FILE):
+        try:
+            with open(TOKEN_FILE, 'r') as f:
+                data = json.load(f)
+                return data.get("token", "")
+        except:
+            return ""
+    return ""
+
+
+GLOBAL_STATUS = {"message": "SYSTEM READY.", "type": "", "done": True}
 
 
 @eel.expose
@@ -22,7 +43,10 @@ def get_status():
 @eel.expose
 def start_update_process(token):
     global GLOBAL_STATUS
-    GLOBAL_STATUS = {"message": "Verbinde mit Warframe Market...", "type": "loading", "done": False}
+    # HIER: Speichere den Token sofort ab, wenn der User auf Start drückt!
+    save_token(token)
+
+    GLOBAL_STATUS = {"message": "CONNECTING TO MARKET...", "type": "loading", "done": False}
     thread = threading.Thread(target=run_update, args=(token,))
     thread.start()
 
@@ -41,15 +65,13 @@ def run_update(token):
     }
 
     try:
-        # 1. Eigene Orders abrufen
         resp = requests.get("https://api.warframe.market/v2/orders/my", headers=headers, timeout=10)
 
         if resp.status_code == 401:
-            GLOBAL_STATUS = {"message": "Fehler: Token ungültig oder abgelaufen.", "type": "error", "done": True}
+            GLOBAL_STATUS = {"message": "ERROR: INVALID OR EXPIRED TOKEN.", "type": "error", "done": True}
             return
         elif resp.status_code == 403:
-            GLOBAL_STATUS = {"message": "Fehler 403: Zugriff verweigert. Bitte prüfe Token und User-Agent.",
-                             "type": "error", "done": True}
+            GLOBAL_STATUS = {"message": "ERROR 403: ACCESS DENIED.", "type": "error", "done": True}
             return
 
         resp.raise_for_status()
@@ -66,7 +88,7 @@ def run_update(token):
         total = len(orders)
 
         if total == 0:
-            GLOBAL_STATUS = {"message": "Keine aktiven Orders gefunden.", "type": "success", "done": True}
+            GLOBAL_STATUS = {"message": "NO ACTIVE ORDERS FOUND.", "type": "success", "done": True}
             return
 
         updated_count = 0
@@ -75,45 +97,36 @@ def run_update(token):
             if not order_id:
                 continue
 
-            # --- KORREKTUR: Body mit den aktuellen Werten füllen ---
-            # Die API erwartet beim PATCH die Felder, die aktualisiert werden sollen.
-            # Wir senden die aktuellen Werte, damit sich nichts ändert, außer dem "zuletzt aktualisiert"-Zeitstempel.
             patch_body = {
                 "platinum": order.get("platinum"),
                 "quantity": order.get("quantity"),
                 "visible": order.get("visible")
             }
 
-            GLOBAL_STATUS = {"message": f"Aktualisiere {i + 1} von {total}...\n(Order ID: {order_id})",
-                             "type": "loading", "done": False}
+            GLOBAL_STATUS = {"message": f"UPDATING {i + 1} OF {total}...", "type": "loading", "done": False}
 
-            # PATCH-Request mit JSON-Body
             put_resp = requests.patch(
                 f"https://api.warframe.market/v2/order/{order_id}",
                 headers=headers,
-                data=json.dumps(patch_body),  # Body als JSON-String senden
+                data=json.dumps(patch_body),
                 timeout=10
             )
 
             if put_resp.status_code in [200, 201, 204]:
                 updated_count += 1
-            else:
-                # Logge den Fehler, falls ein anderer Status zurückkommt
-                print(f"Fehler bei {order_id}: {put_resp.status_code} - {put_resp.text}")
 
-            # Rate-Limit beachten (max. 3 Anfragen/Sekunde)
             time.sleep(0.4)
 
-        GLOBAL_STATUS = {"message": f"Erfolgreich! {updated_count} von {total} Orders aktualisiert.", "type": "success",
+        GLOBAL_STATUS = {"message": f"SUCCESS. {updated_count}/{total} ORDERS UPDATED.", "type": "success",
                          "done": True}
 
     except requests.exceptions.RequestException as e:
-        GLOBAL_STATUS = {"message": f"Netzwerkfehler: {str(e)}", "type": "error", "done": True}
+        GLOBAL_STATUS = {"message": f"NETWORK ERROR.", "type": "error", "done": True}
     except Exception as e:
-        GLOBAL_STATUS = {"message": f"Unerwarteter Fehler: {str(e)}", "type": "error", "done": True}
+        GLOBAL_STATUS = {"message": f"SYSTEM ERROR.", "type": "error", "done": True}
 
 
 if __name__ == '__main__':
-    print("Starte App... Bitte warten.")
     eel.init(WEB_DIR)
+    # eel startet jetzt mit dem sauberen Titel
     eel.start('index.html', size=(500, 420), mode='edge', port=0)
