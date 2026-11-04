@@ -16,7 +16,7 @@ Keep your buy and sell listings at the top of the page so your items sell faster
 In order to bump your items, the tool needs your session token. 
 
 1. Log into [warframe.market](https://warframe.market).
-2. Right-click anywhere on the page ➔ **Inspect** (Untersuchen).
+2. Right-click anywhere on the page ➔ **Inspect**
 3. Navigate to the **Application** tab.
 4. In the left sidebar, expand **Cookies** and select `https://warframe.market`.
 5. Look for the cookie named `JWT`.
