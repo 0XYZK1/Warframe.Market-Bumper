@@ -7,27 +7,27 @@ import time
 import requests
 import webview
 
-APP_NAME = "TAOS | WF Bumper"
-IS_FROZEN = getattr(sys, "frozen", False)
-BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-APP_DIR = os.path.dirname(sys.executable) if IS_FROZEN else os.path.dirname(os.path.abspath(__file__))
-WEB_DIR = os.path.join(BASE_DIR, "web")
-ICON_FILE = os.path.join(BASE_DIR, "assets", "icon.ico")
-TOKEN_FILE = os.path.join(APP_DIR, "config.json")
+NAME = "TAOS | WF Bumper"
+FROZEN = getattr(sys, "frozen", False)
+RES = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+APP = os.path.dirname(sys.executable) if FROZEN else os.path.dirname(os.path.abspath(__file__))
+WEB = os.path.join(RES, "web")
+ICON = os.path.join(RES, "assets", "icon.ico")
+CONFIG = os.path.join(APP, "config.json")
 
-GLOBAL_STATUS = {"message": "SYSTEM READY.", "type": "", "done": True}
+status = {"message": "SYSTEM READY.", "type": "", "done": True}
 
 
 def save_token(token):
     try:
-        with open(TOKEN_FILE, "w", encoding="utf-8") as f:
+        with open(CONFIG, "w", encoding="utf-8") as f:
             json.dump({"token": token}, f)
-    except Exception:
+    except OSError:
         pass
 
 
-def run_update(token):
-    global GLOBAL_STATUS
+def bump_orders(token):
+    global status
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -40,113 +40,113 @@ def run_update(token):
     }
 
     try:
-        resp = requests.get("https://api.warframe.market/v2/orders/my", headers=headers, timeout=10)
+        r = requests.get("https://api.warframe.market/v2/orders/my", headers=headers, timeout=10)
 
-        if resp.status_code == 401:
-            GLOBAL_STATUS = {"message": "ERROR: INVALID OR EXPIRED TOKEN.", "type": "error", "done": True}
+        if r.status_code == 401:
+            status = {"message": "ERROR: INVALID OR EXPIRED TOKEN.", "type": "error", "done": True}
             return
-        elif resp.status_code == 403:
-            GLOBAL_STATUS = {"message": "ERROR 403: ACCESS DENIED.", "type": "error", "done": True}
+        if r.status_code == 403:
+            status = {"message": "ERROR 403: ACCESS DENIED.", "type": "error", "done": True}
             return
 
-        resp.raise_for_status()
-        data = resp.json()
+        r.raise_for_status()
+        data = r.json()
 
         payload = data.get("data", [])
-        if isinstance(payload, list):
-            orders = payload
-        elif isinstance(payload, dict):
+        if isinstance(payload, dict):
             orders = payload.get("orders", [])
         else:
-            orders = []
+            orders = payload if isinstance(payload, list) else []
 
-        total = len(orders)
-
-        if total == 0:
-            GLOBAL_STATUS = {"message": "NO ACTIVE ORDERS FOUND.", "type": "success", "done": True}
+        if not orders:
+            status = {"message": "NO ACTIVE ORDERS FOUND.", "type": "success", "done": True}
             return
 
-        updated_count = 0
+        done = 0
         for i, order in enumerate(orders):
             order_id = order.get("id")
             if not order_id:
                 continue
 
-            patch_body = {
+            body = {
                 "platinum": order.get("platinum"),
                 "quantity": order.get("quantity"),
                 "visible": order.get("visible"),
             }
 
-            GLOBAL_STATUS = {"message": f"UPDATING {i + 1} OF {total}...", "type": "loading", "done": False}
+            status = {
+                "message": f"UPDATING {i + 1} OF {len(orders)}...",
+                "type": "loading",
+                "done": False,
+            }
 
-            put_resp = requests.patch(
+            put = requests.patch(
                 f"https://api.warframe.market/v2/order/{order_id}",
                 headers=headers,
-                data=json.dumps(patch_body),
+                data=json.dumps(body),
                 timeout=10,
             )
 
-            if put_resp.status_code in [200, 201, 204]:
-                updated_count += 1
+            if put.status_code in (200, 201, 204):
+                done += 1
 
+            # nicht zu schnell, sonst sperrt die api irgendwann
             time.sleep(0.4)
 
-        GLOBAL_STATUS = {
-            "message": f"SUCCESS. {updated_count}/{total} ORDERS UPDATED.",
+        status = {
+            "message": f"SUCCESS. {done}/{len(orders)} ORDERS UPDATED.",
             "type": "success",
             "done": True,
         }
 
-    except requests.exceptions.RequestException:
-        GLOBAL_STATUS = {"message": "NETWORK ERROR.", "type": "error", "done": True}
+    except requests.RequestException:
+        status = {"message": "NETWORK ERROR.", "type": "error", "done": True}
     except Exception:
-        GLOBAL_STATUS = {"message": "SYSTEM ERROR.", "type": "error", "done": True}
+        status = {"message": "SYSTEM ERROR.", "type": "error", "done": True}
 
 
 class Api:
     def load_token(self):
-        if os.path.exists(TOKEN_FILE):
-            try:
-                with open(TOKEN_FILE, "r", encoding="utf-8") as f:
-                    return json.load(f).get("token", "")
-            except Exception:
-                return ""
-        return ""
+        if not os.path.exists(CONFIG):
+            return ""
+        try:
+            with open(CONFIG, "r", encoding="utf-8") as f:
+                return json.load(f).get("token", "")
+        except (OSError, ValueError):
+            return ""
 
     def get_status(self):
-        return GLOBAL_STATUS
+        return status
 
     def start_update_process(self, token):
-        global GLOBAL_STATUS
+        global status
         save_token(token)
-        GLOBAL_STATUS = {"message": "CONNECTING TO MARKET...", "type": "loading", "done": False}
-        threading.Thread(target=run_update, args=(token,), daemon=True).start()
+        status = {"message": "CONNECTING TO MARKET...", "type": "loading", "done": False}
+        threading.Thread(target=bump_orders, args=(token,), daemon=True).start()
         return True
 
 
-def set_taskbar_icon(window):
-    """Give the WinForms window the same icon as the executable."""
+def set_icon(window):
+    # ohne das nimmt windows das python-icon in der taskleiste
     try:
-        import clr  # provided by pythonnet
+        import clr
 
         clr.AddReference("System.Drawing")
         from System.Drawing import Icon
 
-        window.native.Icon = Icon(ICON_FILE)
+        window.native.Icon = Icon(ICON)
     except Exception:
         pass
 
 
 if __name__ == "__main__":
-    window = webview.create_window(
-        APP_NAME,
-        os.path.join(WEB_DIR, "index.html"),
+    win = webview.create_window(
+        NAME,
+        os.path.join(WEB, "index.html"),
         width=500,
         height=420,
         resizable=False,
         background_color="#000000",
         js_api=Api(),
     )
-
-    webview.start(set_taskbar_icon, (window,), private_mode=False, storage_path=os.path.join(APP_DIR, ".webview"))
+    webview.start(set_icon, (win,), private_mode=False, storage_path=os.path.join(APP, ".webview"))

@@ -24,7 +24,7 @@
         .card { width: 100%; max-width: 420px; padding: 40px 32px; background: var(--card-bg); border: 1px solid var(--border); box-shadow: 0 0 40px rgba(0,0,0,1); }
         
         /* TAOS Branding */
-        .logo { display: block; width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; object-fit: cover; }
+        .logo { display: block; width: 72px; height: 72px; margin: 0 auto 16px; }
         .brand { font-family: 'Cinzel', serif; font-size: 2rem; font-weight: 700; text-align: center; letter-spacing: 6px; margin-bottom: 5px; color: var(--accent); }
         h1 { font-size: 0.7rem; font-weight: 400; margin-bottom: 32px; text-align: center; letter-spacing: 4px; text-transform: uppercase; color: var(--text-muted); }
         
@@ -63,17 +63,16 @@
         let isUpdating = false;
         let pollInterval = null;
 
-        // pywebview injects window.pywebview.api once the window is ready.
-        async function bridge() {
+        // pywebview braucht einen moment, bis window.pywebview.api da ist
+        async function getApi() {
             if (!window.pywebview || !window.pywebview.api) {
                 await new Promise(resolve => window.addEventListener('pywebviewready', resolve, { once: true }));
             }
             return window.pywebview.api;
         }
 
-        // Lädt den Token beim Start der App
         async function init() {
-            const api = await bridge();
+            const api = await getApi();
             const savedToken = await api.load_token();
             if (savedToken) {
                 document.getElementById("token").value = savedToken;
@@ -108,7 +107,7 @@
 
             pollInterval = setInterval(async () => {
                 try {
-                    const api = await bridge();
+                    const api = await getApi();
                     const status = await api.get_status();
                     statusBox.textContent = status.message;
                     statusBox.className = 'status-box ' + status.type;
@@ -125,7 +124,7 @@
             }, 300); 
 
             try {
-                const api = await bridge();
+                const api = await getApi();
                 await api.start_update_process(token);
             } catch (e) {
                 statusBox.textContent = 'CRITICAL INTERFACE ERROR.';
