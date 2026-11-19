@@ -24,6 +24,7 @@
         .card { width: 100%; max-width: 420px; padding: 40px 32px; background: var(--card-bg); border: 1px solid var(--border); box-shadow: 0 0 40px rgba(0,0,0,1); }
         
         /* TAOS Branding */
+        .logo { display: block; width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%; object-fit: cover; }
         .brand { font-family: 'Cinzel', serif; font-size: 2rem; font-weight: 700; text-align: center; letter-spacing: 6px; margin-bottom: 5px; color: var(--accent); }
         h1 { font-size: 0.7rem; font-weight: 400; margin-bottom: 32px; text-align: center; letter-spacing: 4px; text-transform: uppercase; color: var(--text-muted); }
         
@@ -47,6 +48,7 @@
 </head>
 <body>
     <div class="card">
+        <img src="icon.png" alt="" class="logo">
         <div class="brand">TAOS</div>
         <h1>Market Updater</h1>
         <div class="input-group">
@@ -57,19 +59,32 @@
         <div id="statusBox" class="status-box">SYSTEM READY.</div>
     </div>
 
-    <script type="text/javascript" src="/eel.js"></script>
     <script>
         let isUpdating = false;
         let pollInterval = null;
 
+        // pywebview injects window.pywebview.api once the window is ready.
+        async function bridge() {
+            if (!window.pywebview || !window.pywebview.api) {
+                await new Promise(resolve => window.addEventListener('pywebviewready', resolve, { once: true }));
+            }
+            return window.pywebview.api;
+        }
+
         // Lädt den Token beim Start der App
         async function init() {
-            let savedToken = await eel.load_token()();
+            const api = await bridge();
+            const savedToken = await api.load_token();
             if (savedToken) {
                 document.getElementById("token").value = savedToken;
             }
         }
-        init();
+
+        if (window.pywebview && window.pywebview.api) {
+            init();
+        } else {
+            window.addEventListener('pywebviewready', init);
+        }
 
         async function startUpdate() {
             if (isUpdating) return;
@@ -93,7 +108,8 @@
 
             pollInterval = setInterval(async () => {
                 try {
-                    const status = await eel.get_status()();
+                    const api = await bridge();
+                    const status = await api.get_status();
                     statusBox.textContent = status.message;
                     statusBox.className = 'status-box ' + status.type;
 
@@ -109,7 +125,8 @@
             }, 300); 
 
             try {
-                await eel.start_update_process(token)();
+                const api = await bridge();
+                await api.start_update_process(token);
             } catch (e) {
                 statusBox.textContent = 'CRITICAL INTERFACE ERROR.';
                 statusBox.className = 'status-box error';

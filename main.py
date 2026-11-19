@@ -1,54 +1,29 @@
-import eel
-import requests
-import time
-import os
-import threading
 import json
+import os
+import sys
+import threading
+import time
 
-WEB_DIR = 'web'
-if not os.path.exists(WEB_DIR):
-    os.makedirs(WEB_DIR)
+import requests
+import webview
 
-TOKEN_FILE = 'config.json'
-
-
-def save_token(token):
-    try:
-        with open(TOKEN_FILE, 'w') as f:
-            json.dump({"token": token}, f)
-    except:
-        pass
-
-
-@eel.expose
-def load_token():
-    if os.path.exists(TOKEN_FILE):
-        try:
-            with open(TOKEN_FILE, 'r') as f:
-                data = json.load(f)
-                return data.get("token", "")
-        except:
-            return ""
-    return ""
-
+APP_NAME = "TAOS | WF Bumper"
+IS_FROZEN = getattr(sys, "frozen", False)
+BASE_DIR = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+APP_DIR = os.path.dirname(sys.executable) if IS_FROZEN else os.path.dirname(os.path.abspath(__file__))
+WEB_DIR = os.path.join(BASE_DIR, "web")
+ICON_FILE = os.path.join(BASE_DIR, "assets", "icon.ico")
+TOKEN_FILE = os.path.join(APP_DIR, "config.json")
 
 GLOBAL_STATUS = {"message": "SYSTEM READY.", "type": "", "done": True}
 
 
-@eel.expose
-def get_status():
-    return GLOBAL_STATUS
-
-
-@eel.expose
-def start_update_process(token):
-    global GLOBAL_STATUS
-    # HIER: Speichere den Token sofort ab, wenn der User auf Start drückt!
-    save_token(token)
-
-    GLOBAL_STATUS = {"message": "CONNECTING TO MARKET...", "type": "loading", "done": False}
-    thread = threading.Thread(target=run_update, args=(token,))
-    thread.start()
+def save_token(token):
+    try:
+        with open(TOKEN_FILE, "w", encoding="utf-8") as f:
+            json.dump({"token": token}, f)
+    except Exception:
+        pass
 
 
 def run_update(token):
@@ -61,7 +36,7 @@ def run_update(token):
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "Language": "en",
         "Platform": "pc",
-        "Crossplay": "true"
+        "Crossplay": "true",
     }
 
     try:
@@ -100,7 +75,7 @@ def run_update(token):
             patch_body = {
                 "platinum": order.get("platinum"),
                 "quantity": order.get("quantity"),
-                "visible": order.get("visible")
+                "visible": order.get("visible"),
             }
 
             GLOBAL_STATUS = {"message": f"UPDATING {i + 1} OF {total}...", "type": "loading", "done": False}
@@ -109,7 +84,7 @@ def run_update(token):
                 f"https://api.warframe.market/v2/order/{order_id}",
                 headers=headers,
                 data=json.dumps(patch_body),
-                timeout=10
+                timeout=10,
             )
 
             if put_resp.status_code in [200, 201, 204]:
@@ -117,16 +92,61 @@ def run_update(token):
 
             time.sleep(0.4)
 
-        GLOBAL_STATUS = {"message": f"SUCCESS. {updated_count}/{total} ORDERS UPDATED.", "type": "success",
-                         "done": True}
+        GLOBAL_STATUS = {
+            "message": f"SUCCESS. {updated_count}/{total} ORDERS UPDATED.",
+            "type": "success",
+            "done": True,
+        }
 
-    except requests.exceptions.RequestException as e:
-        GLOBAL_STATUS = {"message": f"NETWORK ERROR.", "type": "error", "done": True}
-    except Exception as e:
-        GLOBAL_STATUS = {"message": f"SYSTEM ERROR.", "type": "error", "done": True}
+    except requests.exceptions.RequestException:
+        GLOBAL_STATUS = {"message": "NETWORK ERROR.", "type": "error", "done": True}
+    except Exception:
+        GLOBAL_STATUS = {"message": "SYSTEM ERROR.", "type": "error", "done": True}
 
 
-if __name__ == '__main__':
-    eel.init(WEB_DIR)
-    # eel startet jetzt mit dem sauberen Titel
-    eel.start('index.html', size=(500, 420), mode='edge', port=0)
+class Api:
+    def load_token(self):
+        if os.path.exists(TOKEN_FILE):
+            try:
+                with open(TOKEN_FILE, "r", encoding="utf-8") as f:
+                    return json.load(f).get("token", "")
+            except Exception:
+                return ""
+        return ""
+
+    def get_status(self):
+        return GLOBAL_STATUS
+
+    def start_update_process(self, token):
+        global GLOBAL_STATUS
+        save_token(token)
+        GLOBAL_STATUS = {"message": "CONNECTING TO MARKET...", "type": "loading", "done": False}
+        threading.Thread(target=run_update, args=(token,), daemon=True).start()
+        return True
+
+
+def set_taskbar_icon(window):
+    """Give the WinForms window the same icon as the executable."""
+    try:
+        import clr  # provided by pythonnet
+
+        clr.AddReference("System.Drawing")
+        from System.Drawing import Icon
+
+        window.native.Icon = Icon(ICON_FILE)
+    except Exception:
+        pass
+
+
+if __name__ == "__main__":
+    window = webview.create_window(
+        APP_NAME,
+        os.path.join(WEB_DIR, "index.html"),
+        width=500,
+        height=420,
+        resizable=False,
+        background_color="#000000",
+        js_api=Api(),
+    )
+
+    webview.start(set_taskbar_icon, (window,), private_mode=False, storage_path=os.path.join(APP_DIR, ".webview"))
